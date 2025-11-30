@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <title>Výber testu</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .menu {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .btn {
+      display: block;
+      width: 200px;
+      margin: 10px auto;
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+    }
+    .btn:hover {
+      background: #005fcc;
+    }
+  </style>
+</head>
+<body>
+  <div class="menu">
+    <h1>Vyber test</h1>
+    <button class="btn" onclick="location.href='kratky.html'">Krátky test (10 otázok)</button>
+    <button class="btn" onclick="location.href='dlhy.html'">Dlhý test (50 otázok)</button>
+  </div>
+</body>
+</html>
