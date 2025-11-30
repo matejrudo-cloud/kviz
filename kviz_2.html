@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <title>Krátky kvíz – časový tlak</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #ffffff;
+      padding: 20px 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 700px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { margin-top: 0; }
+    .hidden { display: none; }
+    .question {
+      font-size: 1.2rem;
+      margin: 20px 0;
+      min-height: 60px;
+    }
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    button.option {
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #eaeaea;
+      cursor: pointer;
+    }
+    button.option:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .timer {
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .meta {
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .start-section input {
+      padding: 5px;
+      width: 60%;
+      margin: 5px 0 10px 0;
+    }
+    .summary {
+      text-align: left;
+      font-size: 0.95rem;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+    .btn {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0069d9;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div id="start-screen" class="start-section">
+    <h1>Krátky kvíz</h1>
+    <p>Zadaj svoje ID / meno:</p>
+    <input type="text" id="participant-id" placeholder="ID / meno">
+    <p>Tento kvíz má <strong>10 otázok</strong>, každá má limit <strong>3 sekundy</strong>.</p>
+    <button class="btn btn-primary" id="start-btn">Spustiť kvíz</button>
+  </div>
+
+  <div id="quiz-screen" class="hidden">
+    <div class="meta">
+      Účastník: <span id="meta-id"></span> •
+      Otázka <span id="question-number"></span>/<span id="question-total"></span>
+    </div>
+    <div class="timer">
+      Zostávajúci čas: <span id="time-remaining">3.0</span> s
+    </div>
+    <div class="question" id="question-text"></div>
+    <div class="options">
+      <button class="option" data-option="A" id="btn-A"></button>
+      <button class="option" data-option="B" id="btn-B"></button>
+      <button class="option" data-option="C" id="btn-C"></button>
+    </div>
+  </div>
+
+  <div id="result-screen" class="hidden">
+    <h1>Koniec kvízu</h1>
+    <p>Ďakujeme za účasť.</p>
+    <p><strong>Správne odpovede:</strong> <span id="score-correct"></span> z <span id="score-total"></span></p>
+    <button class="btn btn-primary" id="download-btn">Stiahnuť výsledky (CSV)</button>
+    <div class="summary" id="summary"></div>
+  </div>
+</div>
+
+<script>
+  // 👉 SEM daj svoj Web App URL z Apps Scriptu
+  const ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbwSp8L4-ulsiWgq_7MciZn6GnZ6Hb7RNjrdkZByl1X3aUyQXN9AsclRrYr5w_7UJg/exec';
+
+  // 10 kritických otázok – tu som ti rovno premiešal správne odpovede medzi A/B/C
+  const allQuestions = [
+    {
+      text: "Koľko je 11 + 9?",
+      options: {A: "20", B: "18", C: "22"},
+      correct: "A"     // správne: 20
+    },
+    {
+      text: "Koľko minút má štvrťhodina?",
+      options: {A: "20", B: "15", C: "10"},
+      correct: "B"     // správne: 15
+    },
+    {
+      text: "Ktorá krajina je väčšia — Rusko alebo Slovensko?",
+      options: {A: "Obe rovnako", B: "Slovensko", C: "Rusko"},
+      correct: "C"     // správne: Rusko
+    },
+    {
+      text: "Ktorá planéta je najbližšie k Slnku?",
+      options: {A: "Merkúr", B: "Mars", C: "Saturn"},
+      correct: "A"
+    },
+    {
+      text: "Koľko je 3 × 7?",
+      options: {A: "18", B: "21", C: "27"},
+      correct: "B"     // správne: 21
+    },
+    {
+      text: "Koľko je 27 – 9?",
+      options: {A: "16", B: "18", C: "19"},
+      correct: "B"     // správne: 18
+    },
+    {
+      text: "Na akom kontinente leží Egypt?",
+      options: {A: "Európa", B: "Afrika", C: "Ázia"},
+      correct: "B"     // správne: Afrika
+    },
+    {
+      text: "Ktoré mesto je hlavné mesto Talianska?",
+      options: {A: "Neapol", B: "Miláno", C: "Rím"},
+      correct: "C"     // správne: Rím
+    },
+    {
+      text: "Koľko je 18 + 4?",
+      options: {A: "22", B: "20", C: "24"},
+      correct: "A"
+    },
+    {
+      text: "Ktoré číslo je väčšie — 0,5 alebo 0,8?",
+      options: {A: "0,5", B: "0,8", C: "Sú rovnaké"},
+      correct: "B"     // správne: 0,8
+    }
+  ];
+
+  const currentMode = "short";
+  let quizQuestions = allQuestions.slice(); // všetkých 10
+  let currentIndex = 0;
+  let startTime = 0;
+  let timerInterval = null;
+  const timeLimitSeconds = 3.0;
+  let participantId = "";
+  let results = [];
+
+  const startScreen = document.getElementById("start-screen");
+  const quizScreen = document.getElementById("quiz-screen");
+  const resultScreen = document.getElementById("result-screen");
+
+  const metaIdSpan = document.getElementById("meta-id");
+  const qNumberSpan = document.getElementById("question-number");
+  const qTotalSpan = document.getElementById("question-total");
+  const qTextDiv = document.getElementById("question-text");
+  const timeRemainingSpan = document.getElementById("time-remaining");
+
+  const btnA = document.getElementById("btn-A");
+  const btnB = document.getElementById("btn-B");
+  const btnC = document.getElementById("btn-C");
+
+  document.getElementById("start-btn").addEventListener("click", () => {
+    participantId = document.getElementById("participant-id").value.trim() || "anon";
+    metaIdSpan.textContent = participantId;
+
+    qTotalSpan.textContent = quizQuestions.length;
+    results = [];
+    currentIndex = 0;
+
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    quizScreen.classList.remove("hidden");
+
+    showQuestion();
+  });
+
+  function showQuestion() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    if (currentIndex >= quizQuestions.length) {
+      endQuiz();
+      return;
+    }
+    const q = quizQuestions[currentIndex];
+
+    qNumberSpan.textContent = currentIndex + 1;
+    qTextDiv.textContent = q.text;
+
+    btnA.textContent = "A: " + q.options.A;
+    btnB.textContent = "B: " + q.options.B;
+    btnC.textContent = "C: " + q.options.C;
+
+    btnA.disabled = false;
+    btnB.disabled = false;
+    btnC.disabled = false;
+
+    startTime = performance.now();
+    let remaining = timeLimitSeconds;
+    timeRemainingSpan.textContent = remaining.toFixed(1);
+
+    timerInterval = setInterval(() => {
+      const elapsed = (performance.now() - startTime) / 1000.0;
+      remaining = Math.max(0, timeLimitSeconds - elapsed);
+      timeRemainingSpan.textContent = remaining.toFixed(1);
+      if (elapsed >= timeLimitSeconds) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        recordAnswer(null, timeLimitSeconds * 1000);
+        nextQuestion();
+      }
+    }, 50);
+  }
+
+  function recordAnswer(chosenOption, responseTimeMs) {
+    const q = quizQuestions[currentIndex];
+    const isCorrect = chosenOption === q.correct;
+    results.push({
+      questionIndex: currentIndex + 1,
+      questionText: q.text,
+      chosenOption: chosenOption || "",
+      correctOption: q.correct,
+      isCorrect: !!isCorrect,
+      responseTimeMs: Math.round(responseTimeMs)
+    });
+  }
+
+  function nextQuestion() {
+    currentIndex += 1;
+    showQuestion();
+  }
+
+  function handleOptionClick(optionLetter) {
+    if (timerInterval === null) return;
+
+    const now = performance.now();
+    const responseTimeMs = now - startTime;
+
+    clearInterval(timerInterval);
+    timerInterval = null;
+
+    btnA.disabled = true;
+    btnB.disabled = true;
+    btnC.disabled = true;
+
+    recordAnswer(optionLetter, responseTimeMs);
+
+    setTimeout(() => {
+      nextQuestion();
+    }, 100);
+  }
+
+  btnA.addEventListener("click", () => handleOptionClick("A"));
+  btnB.addEventListener("click", () => handleOptionClick("B"));
+  btnC.addEventListener("click", () => handleOptionClick("C"));
+
+  function endQuiz() {
+    quizScreen.classList.add("hidden");
+    resultScreen.classList.remove("hidden");
+
+    const correctCount = results.filter(r => r.isCorrect).length;
+    document.getElementById("score-correct").textContent = correctCount;
+    document.getElementById("score-total").textContent = results.length;
+
+    const summaryDiv = document.getElementById("summary");
+    summaryDiv.innerHTML = "";
+    results.forEach(r => {
+      const p = document.createElement("p");
+      p.textContent =
+        `Q${r.questionIndex}: ${r.questionText} | Odpoveď: ${r.chosenOption || "-"} | ` +
+        `Správne: ${r.correctOption} | ` +
+        `Správne? ${r.isCorrect ? "áno" : "nie"} | ` +
+        `čas: ${r.responseTimeMs} ms`;
+      summaryDiv.appendChild(p);
+    });
+
+    sendResultsToServer();
+  }
+
+  function sendResultsToServer() {
+    if (!ENDPOINT_URL || ENDPOINT_URL.startsWith('SEM_VLOZ')) {
+      console.warn("ENDPOINT_URL nie je nastavený.");
+      return;
+    }
+    const payload = {
+      participantId: participantId,
+      mode: currentMode,
+      results: results
+    };
+    fetch(ENDPOINT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    }).catch(err => console.error("Chyba pri odosielaní výsledkov:", err));
+  }
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    if (!results.length) return;
+    const headers = [
+      "participantId",
+      "mode",
+      "questionIndex",
+      "questionText",
+      "chosenOption",
+      "correctOption",
+      "isCorrect",
+      "responseTimeMs"
+    ];
+    const rows = [headers.join(",")];
+    results.forEach(r => {
+      const row = [
+        participantId,
+        currentMode,
+        r.questionIndex,
+        '"' + r.questionText.replace(/"/g, '""') + '"',
+        r.chosenOption,
+        r.correctOption,
+        r.isCorrect ? "1" : "0",
+        r.responseTimeMs
+      ];
+      rows.push(row.join(","));
+    });
+    const csvContent = rows.join("\n");
+    const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().slice(0,10);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kviz_kratky_${participantId}_${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
